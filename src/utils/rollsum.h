@@ -33,7 +33,7 @@
 # define ROLLSUM_CHECKBITS          13
 # define ROLLSUM_CHECKMASK          ((1 << ROLLSUM_CHECKBITS) - 1)
 # define ROLLSUM_CHECKAVGCHUNKSIZE  (1 << ROLLSUM_CHECKBITS)
-# define ROLLSUM_BOUNDVAL           0x1ba8
+# define ROLLSUM_BOUNDVAL           0xa8
 # define ROLLSUM_CHAROFFSET         31
 # define ROLLSUM_ROLLWINDOW         48
 # define ROLLSUM_MINSIZE            512
@@ -44,23 +44,23 @@
 # define rollsumRotate(Sum, Out, In)                                    \
 do                                                                      \
 {                                                                       \
-  (Sum)->s1 += (In) - (Out);                                            \
-  (Sum)->s2 += (Sum)->s1 - (Sum)->count * ((Out) + ROLLSUM_CHAROFFSET); \
+  (Sum)->s1 += (unsigned char)(In) - (unsigned char)(Out);                                            \
+  (Sum)->s2 += (Sum)->s1 - (Sum)->window_count * (((unsigned char)(Out)) + ROLLSUM_CHAROFFSET); \
 } while (0)
 
 struct rollsum
 {
   int             count;
   unsigned char   window[ROLLSUM_ROLLWINDOW];
-  int             window_count;
-  int             window_cursor;
-  unsigned long   s1;
-  unsigned long   s2;
+  unsigned int    window_count;
+  unsigned int    window_cursor;
+  unsigned short  s1;
+  unsigned short  s2;
 };
 
 static inline void rollsum_init(struct rollsum *rs)
 {
-  memset(rs, 0, sizeof (struct rollsum));
+  memset(rs, 0, sizeof (*rs));
 }
 
 static inline int rollsum_roll(struct rollsum *rs, unsigned char c)
@@ -69,24 +69,37 @@ static inline int rollsum_roll(struct rollsum *rs, unsigned char c)
 
   ++rs->count;
 
+  int last_i;
+  if (rs->window_cursor == 0)
+    last_i = ROLLSUM_ROLLWINDOW - 1;
+  else
+    last_i = rs->window_cursor-1;
+
+  rollsumRotate(rs, rs->window[last_i], c);
+
+  rs->window[rs->window_cursor++] = c;
+  rs->window_count++;
+
+  if (rs->window_cursor == ROLLSUM_ROLLWINDOW)
+    rs->window_cursor = 0;
+
   if (rs->count == ROLLSUM_MAXSIZE)
   {
     reached_boundary = 1;
   }
   else if (rs->count > ROLLSUM_MINSIZE)
   {
-    rollsumRotate(rs, rs->window[rs->window_cursor], c);
-
-    rs->window[rs->window_cursor++] = c;
-    rs->window_count++;
-
-    if (rs->window_cursor == ROLLSUM_ROLLWINDOW)
-      rs->window_cursor = 0;
-
     if (rs->window_count >= ROLLSUM_ROLLWINDOW && rollsumMinima(rs))
       reached_boundary = 1;
   }
 
+  /* no need to clean up, buffer is emptied each time
+    if (reached_boundary == 1) {
+    rs->window_cursor = 0;
+    rs->window_count = 0;
+    bzero(rs->window, sizeof(rs->window));
+  }
+  */
   return reached_boundary;
 }
 
