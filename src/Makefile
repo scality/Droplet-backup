@@ -58,7 +58,7 @@ all: $(TARGET)
 
 $(TARGET): $(OBJS)
 	echo "LD	$@"
-	$(CC) $^ -o $@ $(LDFLAGS)
+	$(CC) -g -O2 $^ -o $@ $(LDFLAGS)
 
 .c.o:
 	echo "CC	$^"

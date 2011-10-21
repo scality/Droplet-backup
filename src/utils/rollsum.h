@@ -30,13 +30,13 @@
 #ifndef ROLLSUM_H_
 # define ROLLSUM_H_
 
-# define ROLLSUM_CHECKBITS          13
+# define ROLLSUM_CHECKBITS          14
 # define ROLLSUM_CHECKMASK          ((1 << ROLLSUM_CHECKBITS) - 1)
 # define ROLLSUM_CHECKAVGCHUNKSIZE  (1 << ROLLSUM_CHECKBITS)
 # define ROLLSUM_BOUNDVAL           0xa8
 # define ROLLSUM_CHAROFFSET         31
 # define ROLLSUM_ROLLWINDOW         48
-# define ROLLSUM_MINSIZE            512
+# define ROLLSUM_MINSIZE            1024
 # define ROLLSUM_MAXSIZE            (ROLLSUM_CHECKAVGCHUNKSIZE * 2)
 
 # define rollsumMinima(Sum) ((((Sum)->s1) & ROLLSUM_CHECKMASK) == ROLLSUM_BOUNDVAL)
@@ -66,10 +66,10 @@ static inline void rollsum_init(struct rollsum *rs)
 static inline int rollsum_roll(struct rollsum *rs, unsigned char c)
 {
   int reached_boundary = 0;
-
-  ++rs->count;
-
   int last_i;
+
+  rs->count++;
+
   if (rs->window_cursor == 0)
     last_i = ROLLSUM_ROLLWINDOW - 1;
   else
@@ -89,17 +89,19 @@ static inline int rollsum_roll(struct rollsum *rs, unsigned char c)
   }
   else if (rs->count > ROLLSUM_MINSIZE)
   {
-    if (rs->window_count >= ROLLSUM_ROLLWINDOW && rollsumMinima(rs))
+    // Assumes ROLLWINDOW is smaller than MINSIZE
+    if (rollsumMinima(rs))
       reached_boundary = 1;
   }
 
-  /* no need to clean up, buffer is emptied each time
-    if (reached_boundary == 1) {
+  // no need to clean up, buffer is emptied each time
+  // cleaned anyway for clarity
+  if (reached_boundary == 1) {
     rs->window_cursor = 0;
     rs->window_count = 0;
     bzero(rs->window, sizeof(rs->window));
   }
-  */
+  
   return reached_boundary;
 }
 
